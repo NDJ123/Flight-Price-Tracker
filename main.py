@@ -22,6 +22,7 @@ from typing import Optional
 
 import database as db
 from scheduler import start_scheduler, stop_scheduler, fetch_all_prices
+from email_service import send_alert_confirmation, is_configured as email_configured
 
 # Load environment variables
 load_dotenv()
@@ -198,6 +199,22 @@ async def create_alert(alert: AlertCreate):
         email=alert.email,
         airline_code=alert.airline_code,
     )
+
+    # Send confirmation email
+    if email_configured():
+        # Look up route details for the email
+        routes = await db.get_routes()
+        route = next((r for r in routes if r["id"] == alert.route_id), None)
+        if route:
+            send_alert_confirmation(
+                to_email=alert.email,
+                origin_city=route["origin_city"],
+                destination_city=route["destination_city"],
+                origin_code=route["origin"],
+                destination_code=route["destination"],
+                target_price=alert.target_price,
+            )
+
     return {"status": "ok", "message": "Alert created successfully"}
 
 
