@@ -173,44 +173,56 @@ class AmadeusClient:
                 origin, destination, departure_date, return_date, cabin_class
             )
 
-        await self._authenticate()
-
-        params = {
-            "originLocationCode": origin,
-            "destinationLocationCode": destination,
-            "departureDate": departure_date,
-            "adults": adults,
-            "travelClass": cabin_class,
-            "max": max_results,
-            "currencyCode": "USD",
-        }
-
-        if return_date:
-            params["returnDate"] = return_date
-
-        # Filter for One World airlines
-        params["includedAirlineCodes"] = ",".join(
-            ROUTE_AIRLINE_MAP.get((origin, destination), ONEWORLD_AIRLINES[:5])
-        )
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/v2/shopping/flight-offers",
-                params=params,
-                headers={"Authorization": f"Bearer {self.access_token}"},
-                timeout=30.0,
+        try:
+            await self._authenticate()
+        except Exception as e:
+            logger.warning(f"Amadeus auth failed: {e}. Falling back to mock data.")
+            return self._generate_mock_data(
+                origin, destination, departure_date, return_date, cabin_class
             )
 
-            if response.status_code == 200:
-                data = response.json()
-                return self._parse_amadeus_response(data)
-            else:
-                logger.warning(
-                    f"Amadeus API error: {response.status_code}. Falling back to mock data."
+        try:
+            params = {
+                "originLocationCode": origin,
+                "destinationLocationCode": destination,
+                "departureDate": departure_date,
+                "adults": adults,
+                "travelClass": cabin_class,
+                "max": max_results,
+                "currencyCode": "USD",
+            }
+
+            if return_date:
+                params["returnDate"] = return_date
+
+            # Filter for One World airlines
+            params["includedAirlineCodes"] = ",".join(
+                ROUTE_AIRLINE_MAP.get((origin, destination), ONEWORLD_AIRLINES[:5])
+            )
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/v2/shopping/flight-offers",
+                    params=params,
+                    headers={"Authorization": f"Bearer {self.access_token}"},
+                    timeout=30.0,
                 )
-                return self._generate_mock_data(
-                    origin, destination, departure_date, return_date, cabin_class
-                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return self._parse_amadeus_response(data)
+                else:
+                    logger.warning(
+                        f"Amadeus API error: {response.status_code}. Falling back to mock data."
+                    )
+                    return self._generate_mock_data(
+                        origin, destination, departure_date, return_date, cabin_class
+                    )
+        except Exception as e:
+            logger.warning(f"Amadeus API request failed: {e}. Falling back to mock data.")
+            return self._generate_mock_data(
+                origin, destination, departure_date, return_date, cabin_class
+            )
 
     def _parse_amadeus_response(self, data: dict) -> list:
         """Parse Amadeus API response into our format."""
