@@ -992,8 +992,10 @@ async function loadAirlinesGrid() {
         let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">';
         airlines.forEach(a => {
             const color = AIRLINE_COLORS[a.iata_code] || '#666';
-            html += `<div style="padding:14px;border:1px solid var(--border);border-radius:10px;
-                      border-left:4px solid ${color};display:flex;align-items:center;gap:12px">`;
+            html += `<div onclick="filterByAirline('${a.iata_code}')" style="padding:14px;border:1px solid var(--border);border-radius:10px;
+                      border-left:4px solid ${color};display:flex;align-items:center;gap:12px;cursor:pointer;transition:var(--transition)"
+                      onmouseover="this.style.boxShadow='var(--shadow-lg)';this.style.transform='translateY(-2px)'"
+                      onmouseout="this.style.boxShadow='none';this.style.transform='none'">`;
             html += `<span class="airline-code" style="background:${color}">${a.iata_code}</span>`;
             html += `<div><strong style="font-size:0.9rem">${a.name}</strong>`;
             html += `<br><small style="color:var(--text-muted)">${a.country}</small></div>`;
@@ -1005,6 +1007,20 @@ async function loadAirlinesGrid() {
         document.getElementById('airlinesGrid').innerHTML =
             '<div class="empty-state">Error loading airlines</div>';
     }
+}
+
+// ── Filter by airline (from dashboard click) ─────────────────────────────
+function filterByAirline(airlineCode) {
+    // Switch to Prices tab
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-page="prices"]').classList.add('active');
+    document.getElementById('page-prices').classList.add('active');
+
+    // Set the airline filter and reload
+    document.getElementById('filterAirline').value = airlineCode;
+    document.getElementById('filterRegion').value = '';
+    loadPrices();
 }
 
 // ── Prices Page ───────────────────────────────────────────────────────────
