@@ -7,6 +7,7 @@ across major global routes. Updates hourly via the Amadeus API.
 Run with: uvicorn main:app --reload
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -16,7 +17,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 
 import database as db
@@ -36,6 +37,16 @@ logger = logging.getLogger(__name__)
 # ── App lifecycle ────────────────────────────────────────────────────────────
 
 
+async def initial_fetch():
+    """Run initial price fetch in the background."""
+    try:
+        logger.info("Running initial price fetch in background...")
+        result = await fetch_all_prices()
+        logger.info(f"Initial fetch complete: {result}")
+    except Exception as e:
+        logger.error(f"Initial fetch failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown."""
@@ -45,10 +56,8 @@ async def lifespan(app: FastAPI):
     await db.init_db()
     logger.info("Database initialized")
 
-    # Run initial price fetch
-    logger.info("Running initial price fetch...")
-    result = await fetch_all_prices()
-    logger.info(f"Initial fetch complete: {result}")
+    # Run initial price fetch in background (don't block startup)
+    asyncio.create_task(initial_fetch())
 
     # Start hourly scheduler
     start_scheduler()
