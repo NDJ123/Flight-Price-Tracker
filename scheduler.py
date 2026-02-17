@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from amadeus_client import AmadeusClient
+from email_service import send_price_alert, is_configured as email_configured
 import database as db
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,24 @@ async def fetch_all_prices():
                     f"  Alert: {alert['origin_city']}->{alert['destination_city']} "
                     f"hit ${alert['current_price']} (target: ${alert['target_price']})"
                 )
+
+                # Send email notification
+                if email_configured():
+                    sent = send_price_alert(
+                        to_email=alert["email"],
+                        origin_city=alert["origin_city"],
+                        destination_city=alert["destination_city"],
+                        origin_code=alert["origin"],
+                        destination_code=alert["destination"],
+                        target_price=alert["target_price"],
+                        current_price=alert["current_price"],
+                    )
+                    if sent:
+                        logger.info(f"  Email sent to {alert['email']}")
+                    else:
+                        logger.warning(f"  Failed to send email to {alert['email']}")
+                else:
+                    logger.info("  Email service not configured — skipping notification")
     except Exception as e:
         logger.error(f"Error checking alerts: {e}")
 
