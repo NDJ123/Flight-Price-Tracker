@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyWatch — Flight Price Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        /* ── CSS Reset & Variables ─────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary: #0f4c81;
+            --primary-light: #1a6bb5;
+            --primary-dark: #0a3560;
+            --accent: #e8491d;
+            --accent-light: #ff6b3d;
+            --bg: #f5f7fa;
+            --bg-card: #ffffff;
+            --text: #2d3748;
+            --text-light: #718096;
+            --text-muted: #a0aec0;
+            --border: #e2e8f0;
+            --success: #38a169;
+            --warning: #d69e2e;
+            --danger: #e53e3e;
+            --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+            --shadow-lg: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+            --radius: 12px;
+            --transition: all 0.2s ease;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── Header ────────────────────────────────────────────────────── */
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary), var(--primary-light));
+            color: white;
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo svg { width: 36px; height: 36px; }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .logo span {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            background: rgba(255,255,255,.15);
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-left: 4px;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 0.85rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #68d391;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ── Navigation Tabs ───────────────────────────────────────────── */
+        .nav-tabs {
+            background: rgba(0,0,0,.1);
+        }
+
+        .nav-tabs-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            gap: 0;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            color: rgba(255,255,255,.7);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+            font-size: 0.9rem;
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .nav-tab:hover { color: white; background: rgba(255,255,255,.05); }
+        .nav-tab.active {
+            color: white;
+            border-bottom-color: var(--accent);
+            background: rgba(255,255,255,.08);
+        }
+
+        /* ── Main Content ──────────────────────────────────────────────── */
+        .main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ── Cards ─────────────────────────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .card:hover { box-shadow: var(--shadow-lg); }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .card-body { padding: 20px; }
+
+        /* ── Stats Grid ────────────────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+
+        .stat-icon.blue { background: #ebf5ff; color: var(--primary); }
+        .stat-icon.green { background: #f0fff4; color: var(--success); }
+        .stat-icon.orange { background: #fffbeb; color: var(--warning); }
+        .stat-icon.red { background: #fff5f5; color: var(--accent); }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 2px;
+        }
+
+        /* ── Price Table ───────────────────────────────────────────────── */
+        .table-container { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        thead th {
+            background: #f8fafc;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tbody tr:hover { background: #f8fafc; }
+
+        .airline-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .airline-code {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .price {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--primary-dark);
+        }
+
+        .price-change {
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .price-change.up { color: var(--danger); }
+        .price-change.down { color: var(--success); }
+
+        .route-tag {
+            background: #edf2f7;
+            color: var(--text-light);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .best-price {
+            background: #f0fff4;
+            border-left: 3px solid var(--success);
+        }
+
+        /* ── Filters ───────────────────────────────────────────────────── */
+        .filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        select, input[type="text"], input[type="email"], input[type="number"] {
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text);
+            background: white;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(15,76,129,.1);
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--primary-light); }
+
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-accent:hover { background: var(--accent-light); }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover { background: var(--primary); color: white; }
+
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+        /* ── Charts ────────────────────────────────────────────────────── */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            padding: 10px 0;
+        }
+
+        /* ── Grid Layouts ──────────────────────────────────────────────── */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        /* ── Alerts Form ───────────────────────────────────────────────── */
+        .alert-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .alert-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .alert-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .alert-item:last-child { border-bottom: none; }
+
+        .alert-route { font-weight: 600; }
+        .alert-target { color: var(--success); font-weight: 700; }
+
+        /* ── Comparison Bars ───────────────────────────────────────────── */
+        .comparison-bar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .comparison-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .comparison-label {
+            width: 140px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .comparison-bar-wrapper {
+            flex: 1;
+            background: #edf2f7;
+            border-radius: 6px;
+            height: 32px;
+            overflow: hidden;
+        }
+
+        .comparison-bar {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: width 0.5s ease;
+        }
+
+        /* ── Loading ───────────────────────────────────────────────────── */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Footer ────────────────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 40px;
+        }
+
+        /* ── Responsive ────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .alert-form { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-tab { padding: 10px 14px; font-size: 0.8rem; }
+            .header-status { display: none; }
+        }
+
+        /* ── Empty state ───────────────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        /* ── Toast notifications ───────────────────────────────────────── */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,.15);
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--primary); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* ── Oneworld branding ─────────────────────────────────────────── */
+        .oneworld-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f8f9fa;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ Header ══════════════════════════════════════════════════════════════ -->
+<header class="header">
+    <div class="header-inner">
+        <div class="logo">
+            <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="18" cy="18" r="16" stroke="white" stroke-width="2" fill="none"/>
+                <ellipse cx="18" cy="18" rx="8" ry="16" stroke="white" stroke-width="1.5" fill="none" transform="rotate(30 18 18)"/>
+                <ellipse cx="18" cy="18" rx="8" ry="16" stroke="white" stroke-width="1.5" fill="none" transform="rotate(-30 18 18)"/>
+                <path d="M6 14 Q18 10 30 14" stroke="rgba(255,255,255,0.6)" stroke-width="1" fill="none"/>
+                <path d="M6 22 Q18 26 30 22" stroke="rgba(255,255,255,0.6)" stroke-width="1" fill="none"/>
+                <circle cx="18" cy="18" r="2.5" fill="white"/>
+            </svg>
+            <div>
+                <h1>SkyWatch</h1>
+            </div>
+            <span>oneworld alliance</span>
+        </div>
+        <div class="header-status">
+            <div><span class="status-dot"></span>&nbsp; Live monitoring</div>
+            <div id="lastUpdate" style="opacity:0.8">Loading...</div>
+        </div>
+    </div>
+    <nav class="nav-tabs">
+        <div class="nav-tabs-inner">
+            <div class="nav-tab active" data-page="dashboard">Dashboard</div>
+            <div class="nav-tab" data-page="prices">Live Prices</div>
+            <div class="nav-tab" data-page="compare">Compare</div>
+            <div class="nav-tab" data-page="trends">Trends</div>
+            <div class="nav-tab" data-page="alerts">Alerts</div>
+        </div>
+    </nav>
+</header>
+
+<!-- ══ Main Content ════════════════════════════════════════════════════════ -->
+<main class="main">
+
+    <!-- ── Dashboard Page ──────────────────────────────────────────────── -->
+    <div id="page-dashboard" class="page active">
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon blue">&#9992;</div>
+                <div>
+                    <div class="stat-value" id="statRoutes">—</div>
+                    <div class="stat-label">Routes Monitored</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">&#127968;</div>
+                <div>
+                    <div class="stat-value" id="statAirlines">—</div>
+                    <div class="stat-label">Airlines Tracked</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange">&#128200;</div>
+                <div>
+                    <div class="stat-value" id="statSnapshots">—</div>
+                    <div class="stat-label">Price Snapshots</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red">&#128276;</div>
+                <div>
+                    <div class="stat-value" id="statAlerts">—</div>
+                    <div class="stat-label">Active Alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Cheapest Flights Right Now</h3>
+                    <span class="oneworld-badge">oneworld</span>
+                </div>
+                <div class="card-body table-container" id="cheapestFlightsTable">
+                    <div class="loading"><div class="spinner"></div> Loading prices...</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Price Overview by Region</h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="regionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>Airlines at a Glance</h3>
+            </div>
+            <div class="card-body" id="airlinesGrid">
+                <div class="loading"><div class="spinner"></div> Loading airlines...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Live Prices Page ────────────────────────────────────────────── -->
+    <div id="page-prices" class="page">
+        <div class="filters">
+            <div class="filter-group">
+                <label>Region</label>
+                <select id="filterRegion"><option value="">All Regions</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Airline</label>
+                <select id="filterAirline"><option value="">All Airlines</option></select>
+            </div>
+            <button class="btn btn-primary" onclick="loadPrices()">Refresh</button>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3>Latest Flight Prices</h3>
+                <span id="priceCount" class="route-tag">0 results</span>
+            </div>
+            <div class="card-body table-container" id="pricesTableBody">
+                <div class="loading"><div class="spinner"></div> Loading prices...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Compare Page ────────────────────────────────────────────────── -->
+    <div id="page-compare" class="page">
+        <div class="filters">
+            <div class="filter-group">
+                <label>Select Route</label>
+                <select id="compareRoute" onchange="loadComparison()">
+                    <option value="">Choose a route...</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header"><h3>Price Comparison</h3></div>
+                <div class="card-body" id="comparisonBars">
+                    <div class="empty-state">Select a route to compare airline prices</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Comparison Chart</h3></div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Trends Page ─────────────────────────────────────────────────── -->
+    <div id="page-trends" class="page">
+        <div class="filters">
+            <div class="filter-group">
+                <label>Route</label>
+                <select id="trendRoute" onchange="loadTrends()">
+                    <option value="">Choose a route...</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Time Period</label>
+                <select id="trendDays" onchange="loadTrends()">
+                    <option value="7">Last 7 days</option>
+                    <option value="14">Last 14 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>Price Trend</h3></div>
+            <div class="card-body">
+                <div class="chart-container" style="height:400px">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Alerts Page ─────────────────────────────────────────────────── -->
+    <div id="page-alerts" class="page">
+        <div class="card" style="margin-bottom:24px">
+            <div class="card-header"><h3>Create Price Alert</h3></div>
+            <div class="card-body">
+                <div class="alert-form" id="alertForm">
+                    <div class="form-group">
+                        <label>Route</label>
+                        <select id="alertRoute">
+                            <option value="">Select route...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Target Price (USD)</label>
+                        <input type="number" id="alertPrice" placeholder="e.g. 400" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="alertEmail" placeholder="your@email.com">
+                    </div>
+                    <button class="btn btn-accent" onclick="createAlert()">Set Alert</button>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>Active Alerts</h3></div>
+            <div class="card-body" id="alertsList">
+                <div class="empty-state">No active alerts. Create one above!</div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer class="footer">
+    SkyWatch Flight Price Monitor &mdash; Powered by Amadeus API &mdash; Monitoring oneworld Alliance Airlines<br>
+    Prices update every hour. Data shown is for informational purposes only.
+</footer>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══ JavaScript Application ══════════════════════════════════════════════ -->
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let routes = [];
+let airlines = [];
+let latestPrices = [];
+let charts = {};
+
+// ── Colour palette for airlines ───────────────────────────────────────────
+const AIRLINE_COLORS = {
+    AA: '#0078D2', BA: '#2E4057', CX: '#006564', AY: '#0B1560',
+    IB: '#D81E05', JL: '#C7252C', MH: '#1C3E6E', QF: '#E0001A',
+    QR: '#5C0632', AT: '#C1272D', RJ: '#0069AA', UL: '#1E3A6D',
+    AS: '#01426A', FJ: '#003B6F',
+};
+
+const AIRLINE_COLOR_ARRAY = [
+    '#0078D2', '#2E4057', '#006564', '#0B1560', '#D81E05',
+    '#C7252C', '#1C3E6E', '#E0001A', '#5C0632', '#C1272D',
+    '#0069AA', '#1E3A6D', '#01426A', '#003B6F',
+];
+
+// ── API helpers ───────────────────────────────────────────────────────────
+async function api(path) {
+    const res = await fetch(path);
+    const data = await res.json();
+    if (data.status !== 'ok' && data.status !== 'healthy') {
+        throw new Error(data.detail || 'API error');
+    }
+    return data.data || data;
+}
+
+async function apiPost(path, body) {
+    const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return res.json();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`page-${tab.dataset.page}`).classList.add('active');
+    });
+});
+
+// ── Format helpers ────────────────────────────────────────────────────────
+function formatPrice(price, currency = 'USD') {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
+    }).format(price);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'Z');
+    return d.toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+async function loadDashboard() {
+    try {
+        const stats = await api('/api/dashboard');
+        document.getElementById('statRoutes').textContent = stats.total_routes || 0;
+        document.getElementById('statAirlines').textContent = stats.total_airlines || 0;
+        document.getElementById('statSnapshots').textContent =
+            (stats.total_snapshots || 0).toLocaleString();
+        document.getElementById('statAlerts').textContent = stats.active_alerts || 0;
+
+        if (stats.last_update) {
+            document.getElementById('lastUpdate').textContent =
+                'Updated: ' + formatDateTime(stats.last_update);
+        }
+    } catch (e) {
+        console.error('Dashboard load error:', e);
+    }
+}
+
+async function loadCheapestFlights() {
+    try {
+        const prices = await api('/api/prices/latest');
+        latestPrices = prices;
+
+        // Group by route_id, find cheapest per route
+        const byRoute = {};
+        prices.forEach(p => {
+            if (!byRoute[p.route_id] || p.price < byRoute[p.route_id].price) {
+                byRoute[p.route_id] = p;
+            }
+        });
+
+        const cheapest = Object.values(byRoute).sort((a, b) => a.price - b.price).slice(0, 10);
+
+        let html = '<table><thead><tr>';
+        html += '<th>Route</th><th>Airline</th><th>Price</th><th>Cabin</th><th>Departure</th>';
+        html += '</tr></thead><tbody>';
+
+        cheapest.forEach((p, i) => {
+            html += `<tr class="${i === 0 ? 'best-price' : ''}">`;
+            html += `<td><strong>${p.origin}</strong> &#8594; <strong>${p.destination}</strong>`;
+            html += `<br><small style="color:var(--text-muted)">${p.origin_city} to ${p.destination_city}</small></td>`;
+            html += `<td><span class="airline-badge"><span class="airline-code">${p.airline_code}</span> ${p.airline_name}</span></td>`;
+            html += `<td class="price">${formatPrice(p.price)}</td>`;
+            html += `<td><span class="route-tag">${p.cabin_class}</span></td>`;
+            html += `<td>${formatDate(p.departure_date)}</td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('cheapestFlightsTable').innerHTML = html;
+    } catch (e) {
+        document.getElementById('cheapestFlightsTable').innerHTML =
+            '<div class="empty-state">Error loading prices</div>';
+    }
+}
+
+async function loadRegionChart() {
+    try {
+        const prices = await api('/api/prices/latest');
+        const regions = {};
+        prices.forEach(p => {
+            if (!regions[p.region]) regions[p.region] = [];
+            regions[p.region].push(p.price);
+        });
+
+        const labels = Object.keys(regions);
+        const avgPrices = labels.map(r => {
+            const arr = regions[r];
+            return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+        });
+
+        if (charts.region) charts.region.destroy();
+        charts.region = new Chart(document.getElementById('regionChart'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Average Price (USD)',
+                    data: avgPrices,
+                    backgroundColor: AIRLINE_COLOR_ARRAY.slice(0, labels.length).map(c => c + '99'),
+                    borderColor: AIRLINE_COLOR_ARRAY.slice(0, labels.length),
+                    borderWidth: 2,
+                    borderRadius: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => formatPrice(ctx.raw),
+                        },
+                    },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => '$' + v },
+                        grid: { color: '#f0f0f0' },
+                    },
+                    x: { grid: { display: false } },
+                },
+            },
+        });
+    } catch (e) {
+        console.error('Region chart error:', e);
+    }
+}
+
+async function loadAirlinesGrid() {
+    try {
+        airlines = await api('/api/airlines');
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">';
+        airlines.forEach(a => {
+            const color = AIRLINE_COLORS[a.iata_code] || '#666';
+            html += `<div style="padding:14px;border:1px solid var(--border);border-radius:10px;
+                      border-left:4px solid ${color};display:flex;align-items:center;gap:12px">`;
+            html += `<span class="airline-code" style="background:${color}">${a.iata_code}</span>`;
+            html += `<div><strong style="font-size:0.9rem">${a.name}</strong>`;
+            html += `<br><small style="color:var(--text-muted)">${a.country}</small></div>`;
+            html += '</div>';
+        });
+        html += '</div>';
+        document.getElementById('airlinesGrid').innerHTML = html;
+    } catch (e) {
+        document.getElementById('airlinesGrid').innerHTML =
+            '<div class="empty-state">Error loading airlines</div>';
+    }
+}
+
+// ── Prices Page ───────────────────────────────────────────────────────────
+async function loadPrices() {
+    try {
+        const regionFilter = document.getElementById('filterRegion').value;
+        const airlineFilter = document.getElementById('filterAirline').value;
+
+        let url = '/api/prices/latest?';
+        if (airlineFilter) url += `airline_code=${airlineFilter}&`;
+
+        let prices = await api(url);
+
+        if (regionFilter) {
+            prices = prices.filter(p => p.region === regionFilter);
+        }
+
+        document.getElementById('priceCount').textContent = `${prices.length} results`;
+
+        let html = '<table><thead><tr>';
+        html += '<th>Route</th><th>Region</th><th>Airline</th><th>Price</th>';
+        html += '<th>Class</th><th>Departure</th><th>Updated</th>';
+        html += '</tr></thead><tbody>';
+
+        if (prices.length === 0) {
+            html += '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">No prices found for these filters</td></tr>';
+        }
+
+        // Sort by price
+        prices.sort((a, b) => a.price - b.price);
+
+        prices.forEach(p => {
+            html += '<tr>';
+            html += `<td><strong>${p.origin} &#8594; ${p.destination}</strong>`;
+            html += `<br><small style="color:var(--text-muted)">${p.origin_city} to ${p.destination_city}</small></td>`;
+            html += `<td><span class="route-tag">${p.region}</span></td>`;
+            html += `<td><span class="airline-badge"><span class="airline-code" style="background:${AIRLINE_COLORS[p.airline_code] || '#666'}">${p.airline_code}</span> ${p.airline_name}</span></td>`;
+            html += `<td class="price">${formatPrice(p.price)}</td>`;
+            html += `<td>${p.cabin_class}</td>`;
+            html += `<td>${formatDate(p.departure_date)}</td>`;
+            html += `<td style="color:var(--text-muted);font-size:0.85rem">${formatDateTime(p.fetched_at)}</td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('pricesTableBody').innerHTML = html;
+    } catch (e) {
+        document.getElementById('pricesTableBody').innerHTML =
+            '<div class="empty-state">Error loading prices</div>';
+    }
+}
+
+// ── Compare Page ──────────────────────────────────────────────────────────
+async function loadComparison() {
+    const routeId = document.getElementById('compareRoute').value;
+    if (!routeId) return;
+
+    try {
+        const comparison = await api(`/api/prices/compare/${routeId}`);
+
+        if (comparison.length === 0) {
+            document.getElementById('comparisonBars').innerHTML =
+                '<div class="empty-state">No price data available for this route</div>';
+            return;
+        }
+
+        const maxPrice = Math.max(...comparison.map(c => c.price));
+
+        // Bar chart
+        let html = '<div class="comparison-bar-container">';
+        comparison.forEach((c, i) => {
+            const pct = Math.round((c.price / maxPrice) * 100);
+            const color = AIRLINE_COLORS[c.airline_code] || '#666';
+            const isCheapest = i === 0;
+            html += `<div class="comparison-row">`;
+            html += `<div class="comparison-label"><span class="airline-code" style="background:${color}">${c.airline_code}</span> ${c.airline_name}</div>`;
+            html += `<div class="comparison-bar-wrapper">`;
+            html += `<div class="comparison-bar" style="width:${pct}%;background:${color}${isCheapest ? '' : 'cc'}">${formatPrice(c.price)}${isCheapest ? ' ★ Best' : ''}</div>`;
+            html += `</div></div>`;
+        });
+        html += '</div>';
+        document.getElementById('comparisonBars').innerHTML = html;
+
+        // Chart
+        if (charts.comparison) charts.comparison.destroy();
+        charts.comparison = new Chart(document.getElementById('comparisonChart'), {
+            type: 'doughnut',
+            data: {
+                labels: comparison.map(c => c.airline_name),
+                datasets: [{
+                    data: comparison.map(c => c.price),
+                    backgroundColor: comparison.map(c => (AIRLINE_COLORS[c.airline_code] || '#666') + 'cc'),
+                    borderColor: comparison.map(c => AIRLINE_COLORS[c.airline_code] || '#666'),
+                    borderWidth: 2,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.label}: ${formatPrice(ctx.raw)}`,
+                        },
+                    },
+                    legend: { position: 'bottom' },
+                },
+            },
+        });
+    } catch (e) {
+        console.error('Comparison error:', e);
+    }
+}
+
+// ── Trends Page ───────────────────────────────────────────────────────────
+async function loadTrends() {
+    const routeId = document.getElementById('trendRoute').value;
+    const days = document.getElementById('trendDays').value;
+    if (!routeId) return;
+
+    try {
+        const history = await api(`/api/prices/history/${routeId}?days=${days}`);
+
+        if (history.length === 0) {
+            if (charts.trend) charts.trend.destroy();
+            return;
+        }
+
+        // Group by airline
+        const byAirline = {};
+        history.forEach(h => {
+            if (!byAirline[h.airline_code]) {
+                byAirline[h.airline_code] = { name: h.airline_name, points: [] };
+            }
+            byAirline[h.airline_code].points.push({
+                x: new Date(h.fetched_at + 'Z'),
+                y: h.price,
+            });
+        });
+
+        const datasets = Object.entries(byAirline).map(([code, data]) => ({
+            label: data.name,
+            data: data.points,
+            borderColor: AIRLINE_COLORS[code] || '#666',
+            backgroundColor: (AIRLINE_COLORS[code] || '#666') + '22',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            borderWidth: 2,
+        }));
+
+        if (charts.trend) charts.trend.destroy();
+        charts.trend = new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.dataset.label}: ${formatPrice(ctx.raw.y)}`,
+                        },
+                    },
+                    legend: { position: 'top' },
+                },
+                scales: {
+                    x: {
+                        type: 'timeseries',
+                        time: { unit: days <= 14 ? 'day' : 'week' },
+                        grid: { display: false },
+                    },
+                    y: {
+                        beginAtZero: false,
+                        ticks: { callback: v => '$' + v },
+                        grid: { color: '#f0f0f0' },
+                    },
+                },
+            },
+        });
+    } catch (e) {
+        console.error('Trends error:', e);
+    }
+}
+
+// ── Alerts Page ───────────────────────────────────────────────────────────
+async function createAlert() {
+    const routeId = document.getElementById('alertRoute').value;
+    const price = document.getElementById('alertPrice').value;
+    const email = document.getElementById('alertEmail').value;
+
+    if (!routeId || !price || !email) {
+        showToast('Please fill in all fields', 'error');
+        return;
+    }
+
+    try {
+        await apiPost('/api/alerts', {
+            route_id: parseInt(routeId),
+            target_price: parseFloat(price),
+            email,
+        });
+        showToast('Price alert created!', 'success');
+        document.getElementById('alertPrice').value = '';
+        loadAlerts();
+    } catch (e) {
+        showToast('Error creating alert', 'error');
+    }
+}
+
+async function loadAlerts() {
+    try {
+        const alerts = await api('/api/alerts');
+
+        if (alerts.length === 0) {
+            document.getElementById('alertsList').innerHTML =
+                '<div class="empty-state">No active alerts. Create one above!</div>';
+            return;
+        }
+
+        let html = '<ul class="alert-list">';
+        alerts.forEach(a => {
+            html += '<li class="alert-item">';
+            html += `<div><span class="alert-route">${a.origin_city} &#8594; ${a.destination_city}</span>`;
+            html += `<br><small style="color:var(--text-muted)">${a.origin} &#8594; ${a.destination}</small></div>`;
+            html += `<div class="alert-target">Target: ${formatPrice(a.target_price)}</div>`;
+            html += `<div style="color:var(--text-muted);font-size:0.85rem">${a.email}</div>`;
+            html += '</li>';
+        });
+        html += '</ul>';
+        document.getElementById('alertsList').innerHTML = html;
+    } catch (e) {
+        document.getElementById('alertsList').innerHTML =
+            '<div class="empty-state">Error loading alerts</div>';
+    }
+}
+
+// ── Populate Filters ──────────────────────────────────────────────────────
+async function populateFilters() {
+    try {
+        routes = await api('/api/routes');
+        airlines = await api('/api/airlines');
+        const regions = await api('/api/routes/regions');
+
+        // Region filter
+        const regionSelect = document.getElementById('filterRegion');
+        regions.forEach(r => {
+            regionSelect.innerHTML += `<option value="${r}">${r}</option>`;
+        });
+
+        // Airline filter
+        const airlineSelect = document.getElementById('filterAirline');
+        airlines.forEach(a => {
+            airlineSelect.innerHTML += `<option value="${a.iata_code}">${a.name} (${a.iata_code})</option>`;
+        });
+
+        // Route selectors (compare, trends, alerts)
+        const routeOptions = routes.map(r =>
+            `<option value="${r.id}">${r.origin_city} (${r.origin}) &#8594; ${r.destination_city} (${r.destination})</option>`
+        ).join('');
+
+        ['compareRoute', 'trendRoute', 'alertRoute'].forEach(id => {
+            const el = document.getElementById(id);
+            el.innerHTML = '<option value="">Choose a route...</option>' + routeOptions;
+        });
+    } catch (e) {
+        console.error('Filter populate error:', e);
+    }
+}
+
+// ── Initial Load ──────────────────────────────────────────────────────────
+async function init() {
+    await populateFilters();
+    await Promise.all([
+        loadDashboard(),
+        loadCheapestFlights(),
+        loadRegionChart(),
+        loadAirlinesGrid(),
+        loadPrices(),
+        loadAlerts(),
+    ]);
+}
+
+// Auto-refresh every 5 minutes
+setInterval(async () => {
+    await loadDashboard();
+    await loadCheapestFlights();
+}, 300000);
+
+init();
+</script>
+</body>
+</html>
