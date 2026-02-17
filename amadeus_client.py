@@ -210,7 +210,16 @@ class AmadeusClient:
 
                 if response.status_code == 200:
                     data = response.json()
-                    return self._parse_amadeus_response(data)
+                    results = self._parse_amadeus_response(data)
+                    if results:
+                        return results
+                    # Amadeus returned no results for this route — fall back to mock
+                    logger.info(
+                        f"Amadeus returned 0 results for {origin}-{destination}. Using mock data."
+                    )
+                    return self._generate_mock_data(
+                        origin, destination, departure_date, return_date, cabin_class
+                    )
                 else:
                     logger.warning(
                         f"Amadeus API error: {response.status_code}. Falling back to mock data."
